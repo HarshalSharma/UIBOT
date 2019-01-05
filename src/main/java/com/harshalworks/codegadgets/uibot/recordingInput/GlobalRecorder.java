@@ -1,6 +1,7 @@
 package com.harshalworks.codegadgets.uibot.recordingInput;
 
 import java.io.FileOutputStream;
+import java.io.IOException;
 import java.io.ObjectOutputStream;
 import java.util.ArrayList;
 import java.util.Scanner;
@@ -13,14 +14,8 @@ import org.jnativehook.NativeInputEvent;
 
 public class GlobalRecorder {
 
-	public static void main(String[] args) {
-		try {
-			GlobalScreen.registerNativeHook();
-		} catch (NativeHookException ex) {
-			System.err.println("There was a problem registering the native hook.");
-			System.err.println(ex.getMessage());
-			System.exit(1);
-		}
+	public static void record(String fileName) throws NativeHookException, IOException {
+		GlobalScreen.registerNativeHook();
 
 		GlobalListener myListner = new GlobalListener();
 		GlobalScreen.addNativeMouseListener(myListner);
@@ -38,18 +33,13 @@ public class GlobalRecorder {
 			//waiting to stop...
 			//press F3 to stop.
 		}
-//		myListner.stopRecording();
 		ArrayList<NativeInputEvent> inputEvents = myListner.getRecording();
-		try {
-			FileOutputStream fout = new FileOutputStream("mouseRecording");
-			ObjectOutputStream oos = new ObjectOutputStream(fout);
-			oos.writeObject(inputEvents);
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		FileOutputStream fout = new FileOutputStream(fileName + ".roborecord");
+		ObjectOutputStream oos = new ObjectOutputStream(fout);
+		oos.writeObject(inputEvents);
+		GlobalScreen.unregisterNativeHook();
 
-
-		System.out.println(inputEvents.size() + " input events are recorded.");
+//		System.out.println(inputEvents.size() + " input events are recorded.");
 		System.exit(1);
 	}
 

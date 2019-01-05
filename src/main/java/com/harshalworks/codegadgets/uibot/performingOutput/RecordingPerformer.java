@@ -8,156 +8,168 @@ import java.awt.Toolkit;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
 import java.io.FileInputStream;
+import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.ArrayList;
 
 import com.harshalworks.codegadgets.uibot.recordingInput.NativeToAwt;
+import org.jnativehook.GlobalScreen;
+import org.jnativehook.NativeHookException;
 import org.jnativehook.NativeInputEvent;
 import org.jnativehook.keyboard.NativeKeyEvent;
+import org.jnativehook.keyboard.NativeKeyListener;
 import org.jnativehook.mouse.NativeMouseEvent;
 
 public class RecordingPerformer {
 
-	public static void main(String args[]) {
-		new RecordingPerformer();
-	}
+    public void playRecording(String fileName) throws IOException, ClassNotFoundException, AWTException, NativeHookException {
+        loadMouseRecording(fileName);
+        try {
+            if (!GlobalScreen.isNativeHookRegistered()) GlobalScreen.registerNativeHook();
+            GlobalScreen.registerNativeHook();
+            GlobalScreen.addNativeKeyListener(new NativeKeyListener() {
+                @Override
+                public void nativeKeyPressed(NativeKeyEvent nativeKeyEvent) {
+                    if (nativeKeyEvent.getKeyCode() == NativeKeyEvent.VC_F3) {
+                        interuppted = true;
+                    }
+                }
 
-	public RecordingPerformer() {
-		loadMouseRecording();
-		try {
-			robot = new Robot();
-		} catch (AWTException e) {
-			e.printStackTrace();
-			System.exit(1);
-		}
-		robot.setAutoWaitForIdle(true);
-		play();
-	}
+                @Override
+                public void nativeKeyReleased(NativeKeyEvent nativeKeyEvent) {
+                }
 
-	ArrayList<NativeInputEvent> inputEvents;
-	Robot robot;
-	Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+                @Override
+                public void nativeKeyTyped(NativeKeyEvent nativeKeyEvent) {
+                }
+            });
+            robot = new Robot();
+            robot.setAutoWaitForIdle(true);
+            play();
+        } finally {
+            GlobalScreen.unregisterNativeHook();
+        }
+    }
 
-	public void loadMouseRecording() {
-		try {
-			ObjectInputStream ois = new ObjectInputStream(new FileInputStream("mouseRecording"));
-			inputEvents = (ArrayList<NativeInputEvent>) ois.readObject();
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
-	}
+    ArrayList<NativeInputEvent> inputEvents;
+    Robot robot;
+    Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
 
-	public void play() {
-		for (NativeInputEvent nme : inputEvents) {
-			try {
-				performNativeInputEvents(nme);
-			} catch (AWTException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
-			}
-			takeBreak();
-		}
-	}
+    public void loadMouseRecording(String fileName) throws IOException, ClassNotFoundException {
+        ObjectInputStream ois = new ObjectInputStream(new FileInputStream(fileName));
+        inputEvents = (ArrayList<NativeInputEvent>) ois.readObject();
+    }
 
-	public void performNativeInputEvents(NativeInputEvent e) throws AWTException {
-		String nativeInputClassName = e.getClass().getSimpleName();
-		switch (nativeInputClassName) {
-		case "NativeMouseEvent":
-			// if (!validatePoint(((NativeMouseEvent) e).getPoint())) {
-			// System.out.println("INVALID POINT FOUND.");
-			// System.exit(1);
-			// }
-			robot.waitForIdle();
-			// ActionMaker.gradualMouseMove(e.getPoint(), robot);
-			robot.mouseMove(((NativeMouseEvent) e).getX(), ((NativeMouseEvent) e).getY());
-			robot.waitForIdle();
-			switch (e.getID()) {
-			case NativeMouseEvent.NATIVE_MOUSE_PRESSED:
-				if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON1)
-					robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
-				else if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON2)
-					robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-				break;
-			case NativeMouseEvent.NATIVE_MOUSE_RELEASED:
-				if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON1)
-					robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
-				else if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON2)
-					robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
-				break;
-			default:
-				break;
-			}
-			break;
-		case "NativeKeyEvent":
-			NativeKeyEvent keyEvent = (NativeKeyEvent) e;
-			if (!validateKey(keyEvent))
-				return;
-			switch (e.getID()) {
-			case NativeKeyEvent.NATIVE_KEY_PRESSED:
-				if (keyEvent.getModifiersText(keyEvent.getModifiers()).contains("Shift")) {
-					robot.keyPress(KeyEvent.VK_SHIFT);
-					robot.keyPress(NativeToAwt.getAwtKeyCode(keyEvent));
-					robot.keyRelease(KeyEvent.VK_SHIFT);
-				} else {
-					robot.keyPress(NativeToAwt.getAwtKeyCode(keyEvent));
-				}
-				break;
-			case NativeKeyEvent.NATIVE_KEY_RELEASED:
-				robot.keyRelease(NativeToAwt.getAwtKeyCode(keyEvent));
-				break;
-			default:
-				System.out.println("default key event : " + e.getID());
-				break;
-			}
-		}
-	}
+    volatile boolean interuppted = false;
 
-	public void takeBreak() {
-		try {
-			Thread.sleep(10);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-	}
-	
-	public void takeBreak(int num) {
-		try {
-			Thread.sleep(num);
-		} catch (InterruptedException e) {
-			e.printStackTrace();
-		}
-	}
+    public void play() throws AWTException {
+        int i = 0;
+        while (!interuppted && i < inputEvents.size()) {
+            performNativeInputEvents(inputEvents.get(i));
+            takeBreak();
+            i++;
+        }
+    }
 
-	public boolean validatePoint(Point point) {
-		try {
-			if (point.getX() > screenSize.getWidth()) {
-				System.out.println("OUTSIDE X BOUNDS");
-				return false;
-			}
-			if (point.getY() > screenSize.getHeight()) {
-				System.out.println("OUTSIDE Y BOUNDS");
-				return false;
-			}
-		} catch (Exception e) {
-			return false;
-		}
-		return true;
-	}
+    public void performNativeInputEvents(NativeInputEvent e) throws AWTException {
+        String nativeInputClassName = e.getClass().getSimpleName();
+        switch (nativeInputClassName) {
+            case "NativeMouseEvent":
+                // if (!validatePoint(((NativeMouseEvent) e).getPoint())) {
+                // System.out.println("INVALID POINT FOUND.");
+                // System.exit(1);
+                // }
+                robot.waitForIdle();
+                // ActionMaker.gradualMouseMove(e.getPoint(), robot);
+                robot.mouseMove(((NativeMouseEvent) e).getX(), ((NativeMouseEvent) e).getY());
+                robot.waitForIdle();
+                switch (e.getID()) {
+                    case NativeMouseEvent.NATIVE_MOUSE_PRESSED:
+                        if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON1)
+                            robot.mousePress(InputEvent.BUTTON1_DOWN_MASK);
+                        else if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON2)
+                            robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+                        break;
+                    case NativeMouseEvent.NATIVE_MOUSE_RELEASED:
+                        if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON1)
+                            robot.mouseRelease(InputEvent.BUTTON1_DOWN_MASK);
+                        else if (((NativeMouseEvent) e).getButton() == NativeMouseEvent.BUTTON2)
+                            robot.mouseRelease(InputEvent.BUTTON3_DOWN_MASK);
+                        break;
+                    default:
+                        break;
+                }
+                break;
+            case "NativeKeyEvent":
+                NativeKeyEvent keyEvent = (NativeKeyEvent) e;
+                if (!validateKey(keyEvent))
+                    return;
+                switch (e.getID()) {
+                    case NativeKeyEvent.NATIVE_KEY_PRESSED:
+                        if (keyEvent.getModifiersText(keyEvent.getModifiers()).contains("Shift")) {
+                            robot.keyPress(KeyEvent.VK_SHIFT);
+                            robot.keyPress(NativeToAwt.getAwtKeyCode(keyEvent));
+                            robot.keyRelease(KeyEvent.VK_SHIFT);
+                        } else {
+                            robot.keyPress(NativeToAwt.getAwtKeyCode(keyEvent));
+                        }
+                        break;
+                    case NativeKeyEvent.NATIVE_KEY_RELEASED:
+                        robot.keyRelease(NativeToAwt.getAwtKeyCode(keyEvent));
+                        break;
+                    default:
+                        System.out.println("default key event : " + e.getID());
+                        break;
+                }
+        }
+    }
 
-	public boolean validateKey(NativeKeyEvent keyEvent) {
+    public void takeBreak() {
+        try {
+            Thread.sleep(10);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
 
-		try {
-			if (NativeToAwt.getAwtKeyCode(keyEvent) == KeyEvent.VK_UNDEFINED && keyEvent.getModifiers() == 0) {
-				return false;
-			} else if (NativeToAwt.getAwtKeyCode(keyEvent) == KeyEvent.VK_UNDEFINED && keyEvent.getModifiers() > 0) {
+    public void takeBreak(int num) {
+        try {
+            Thread.sleep(num);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
 
-				return false;
-			}
-		}catch (Exception exp){
-			exp.printStackTrace();
-		}
+    public boolean validatePoint(Point point) {
+        try {
+            if (point.getX() > screenSize.getWidth()) {
+                System.out.println("OUTSIDE X BOUNDS");
+                return false;
+            }
+            if (point.getY() > screenSize.getHeight()) {
+                System.out.println("OUTSIDE Y BOUNDS");
+                return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+        return true;
+    }
 
-		return true;
-	}
+    public boolean validateKey(NativeKeyEvent keyEvent) {
+
+        try {
+            if (NativeToAwt.getAwtKeyCode(keyEvent) == KeyEvent.VK_UNDEFINED && keyEvent.getModifiers() == 0) {
+                return false;
+            } else if (NativeToAwt.getAwtKeyCode(keyEvent) == KeyEvent.VK_UNDEFINED && keyEvent.getModifiers() > 0) {
+
+                return false;
+            }
+        } catch (Exception exp) {
+            exp.printStackTrace();
+        }
+
+        return true;
+    }
 
 }
