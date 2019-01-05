@@ -7,9 +7,7 @@ import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.event.InputEvent;
 import java.awt.event.KeyEvent;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
+import java.io.*;
 import java.util.ArrayList;
 
 import com.harshalworks.codegadgets.uibot.recordingInput.NativeToAwt;
@@ -22,11 +20,16 @@ import org.jnativehook.mouse.NativeMouseEvent;
 
 public class RecordingPerformer {
 
-    public void playRecording(String fileName) throws IOException, ClassNotFoundException, AWTException, NativeHookException {
+    public void playRecording(String fileName, int times) throws IOException, ClassNotFoundException, AWTException, NativeHookException {
         loadMouseRecording(fileName);
         try {
-            if (!GlobalScreen.isNativeHookRegistered()) GlobalScreen.registerNativeHook();
-            GlobalScreen.registerNativeHook();
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            System.setOut(new PrintStream(baos));
+
+            if (!GlobalScreen.isNativeHookRegistered()){
+                GlobalScreen.registerNativeHook();
+            }
+
             GlobalScreen.addNativeKeyListener(new NativeKeyListener() {
                 @Override
                 public void nativeKeyPressed(NativeKeyEvent nativeKeyEvent) {
@@ -45,9 +48,13 @@ public class RecordingPerformer {
             });
             robot = new Robot();
             robot.setAutoWaitForIdle(true);
-            play();
+            for (int i = 0; i < times && i<10; i++) {
+                play();
+            }
+
         } finally {
             GlobalScreen.unregisterNativeHook();
+            System.setOut(System.out);
         }
     }
 

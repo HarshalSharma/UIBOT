@@ -1,8 +1,6 @@
 package com.harshalworks.codegadgets.uibot.recordingInput;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.util.ArrayList;
 import java.util.Scanner;
 import java.util.logging.Level;
@@ -15,7 +13,10 @@ import org.jnativehook.NativeInputEvent;
 public class GlobalRecorder {
 
 	public static void record(String fileName) throws NativeHookException, IOException {
+		ByteArrayOutputStream baos = new ByteArrayOutputStream();
+		System.setOut(new PrintStream(baos));
 		GlobalScreen.registerNativeHook();
+		System.setOut(System.out);
 
 		GlobalListener myListner = new GlobalListener();
 		GlobalScreen.addNativeMouseListener(myListner);
@@ -23,9 +24,6 @@ public class GlobalRecorder {
 		GlobalScreen.addNativeKeyListener(myListner);
 
 		// Disabling log.
-		Logger logger = Logger.getLogger(GlobalScreen.class.getPackage().getName());
-		logger.setLevel(Level.OFF);
-		logger.setUseParentHandlers(false);
 
 		myListner.startRecording();
 		Scanner scanner = new Scanner(System.in);
